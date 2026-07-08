@@ -1,4 +1,7 @@
-import { formatDateKey } from './storage.js';
+import { formatDateKey } from './format-date.js';
+import { createTimerClock } from './timer-clock.js';
+import { secondsToParts, formatClockParts } from './format-time.js';
+
 
 const MODE_LABELS = {
   focus: 'Focus',
@@ -10,17 +13,21 @@ export class PomodoroTimer {
   constructor(settings, callbacks) {
     this.settings = settings;
     this.callbacks = callbacks;
+    this.clock = createTimerClock(400);
     this.mode = 'focus';
     this.totalSeconds = 0;
     this.remainingSeconds = 0;
-    this.isRunning = false;
-    this.isPaused = false;
     this.isCompleted = false;
-    this.startedAt = null;
-    this.pausedAt = null;
-    this.accumulatedPause = 0;
-    this.tickInterval = null;
     this.activeTaskId = null;
+    this._syncFlags();
+  }
+
+  get isRunning() { return this.clock.isRunning; }
+  get isPaused() { return this.clock.isPaused; }
+
+  _syncFlags() {
+    this.isRunning = this.clock.isRunning;
+    this.isPaused = this.clock.isPaused;
   }
 
   getDurationForMode(mode) {
@@ -73,65 +80,41 @@ export class PomodoroTimer {
       this.totalSeconds = this.getDurationForMode(this.mode);
       this.remainingSeconds = this.totalSeconds;
     }
-    this.isRunning = true;
-    this.isPaused = false;
     this.isCompleted = false;
-    if (!this.startedAt) this.startedAt = Date.now();
-    if (this.pausedAt) {
-      this.accumulatedPause += Date.now() - this.pausedAt;
-      this.pausedAt = null;
-    }
-    this.startTicking();
+    this.clock.resumeClock();
+    this._syncFlags();
+    this.clock.startTick(() => this.tick());
     this.callbacks.onUpdate();
   }
 
   pause() {
-    if (!this.isRunning) return;
-    this.isRunning = false;
-    this.isPaused = true;
-    this.pausedAt = Date.now();
-    this.stopTicking();
+    this.clock.pauseClock();
+    this._syncFlags();
     this.callbacks.onUpdate();
   }
 
   reset(updateTitle = true) {
-    this.isRunning = false;
-    this.isPaused = false;
     this.isCompleted = false;
-    this.startedAt = null;
-    this.pausedAt = null;
-    this.accumulatedPause = 0;
-    this.stopTicking();
+    this.clock.resetClock();
+    this._syncFlags();
     this.totalSeconds = this.getDurationForMode(this.mode);
     this.remainingSeconds = this.totalSeconds;
     if (updateTitle) this.callbacks.onUpdate();
   }
 
   complete() {
-    this.isRunning = false;
-    this.isPaused = false;
     this.isCompleted = true;
     this.remainingSeconds = 0;
-    this.stopTicking();
+    this.clock.pauseClock();
+    this.clock.stopTick();
+    this._syncFlags();
     this.callbacks.onComplete();
     this.callbacks.onUpdate();
   }
 
-  startTicking() {
-    this.stopTicking();
-    this.tickInterval = setInterval(() => this.tick(), 400);
-  }
-
-  stopTicking() {
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
-    }
-  }
-
   tick() {
-    if (!this.isRunning) return;
-    const elapsed = Math.floor((Date.now() - this.startedAt - this.accumulatedPause) / 1000);
+    if (!this.clock.isRunning) return;
+    const elapsed = this.clock.getElapsedSeconds();
     this.remainingSeconds = Math.max(0, this.totalSeconds - elapsed);
     if (this.remainingSeconds <= 0) {
       this.complete();
@@ -141,11 +124,7 @@ export class PomodoroTimer {
   }
 
   getDisplayTime() {
-    const secs = this.remainingSeconds;
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-    return { hours: h, minutes: m, seconds: s };
+    return secondsToParts(this.remainingSeconds);
   }
 
   getProgress() {
@@ -158,10 +137,8 @@ export class PomodoroTimer {
   }
 
   formatTimeString() {
-    const { hours, minutes, seconds } = this.getDisplayTime();
-    const pad = (n) => String(n).padStart(2, '0');
-    if (hours > 0) return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-    return `${pad(minutes)}:${pad(seconds)}`;
+    const parts = this.getDisplayTime();
+    return formatClockParts(parts, { showHours: parts.hours > 0 });
   }
 
   setActiveTask(taskId) {
@@ -176,5 +153,13 @@ export class PomodoroTimer {
     const key = formatDateKey(new Date());
     sessions[key] = (sessions[key] || 0) + 1;
     return sessions;
+  }
+
+  stopTicking() {
+    this.clock.stopTick();
+  }
+
+  destroy() {
+    this.clock.destroy();
   }
 }

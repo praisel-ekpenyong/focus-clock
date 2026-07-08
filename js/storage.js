@@ -1,9 +1,10 @@
-const STORAGE_KEY = 'timefyi_app';
+import { STORAGE_KEY, LEGACY_STORAGE_KEY } from './constants.js';
+import { DEFAULT_CITIES, mergeDefaultCities, ensureSelectedId } from './cities.js';
+import { formatDateKey, parseDateKey, formatDateLabel, formatDayHeader, isToday, generateId } from './format-date.js';
+import { escapeHtml } from './dom.js';
 
-export const DEFAULT_WORLD_CLOCK_CITIES = [
-  { id: 'America/Edmonton', city: 'Edmonton', country: 'Alberta' },
-  { id: 'America/Toronto', city: 'Toronto', country: 'Ontario' },
-];
+export { DEFAULT_CITIES as DEFAULT_WORLD_CLOCK_CITIES };
+export { formatDateKey, parseDateKey, formatDateLabel, formatDayHeader, isToday, generateId, escapeHtml };
 
 const defaults = {
   settings: {
@@ -20,10 +21,10 @@ const defaults = {
   sessions: {},
   workspace: 'Workspace',
   project: 'Project',
-  timezones: [...DEFAULT_WORLD_CLOCK_CITIES],
+  timezones: [...DEFAULT_CITIES],
   primaryTimezone: 'America/Edmonton',
   timezoneView: 'grid',
-  worldClockCities: [...DEFAULT_WORLD_CLOCK_CITIES],
+  worldClockCities: [...DEFAULT_CITIES],
   selectedWorldCity: 'America/Edmonton',
   timerPresets: [],
   routines: [],
@@ -36,22 +37,21 @@ function mergeSettings(saved = {}) {
   return { ...defaults.settings, ...saved };
 }
 
-function mergeDefaultCities(existing = []) {
-  const merged = existing.map((c) => ({ ...c }));
-  for (const city of DEFAULT_WORLD_CLOCK_CITIES) {
-    const idx = merged.findIndex((c) => c.id === city.id);
-    if (idx === -1) {
-      merged.push({ ...city });
-    } else {
-      merged[idx] = { ...merged[idx], city: city.city, country: city.country };
-    }
+function readRawStorage() {
+  const current = localStorage.getItem(STORAGE_KEY);
+  if (current) return { raw: current, migrated: false };
+  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (legacy) {
+    localStorage.setItem(STORAGE_KEY, legacy);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    return { raw: legacy, migrated: true };
   }
-  return merged;
+  return { raw: null, migrated: false };
 }
 
 export function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const { raw, migrated } = readRawStorage();
     if (!raw) return structuredClone(defaults);
     const parsed = JSON.parse(raw);
     const state = { ...structuredClone(defaults), ...parsed };
@@ -63,14 +63,19 @@ export function loadState() {
     state.worldClockCities = mergeDefaultCities(state.worldClockCities);
     state.timezones = mergeDefaultCities(state.timezones);
 
-    if (!state.worldClockCities.some((c) => c.id === state.selectedWorldCity)) {
-      state.selectedWorldCity = state.worldClockCities[0]?.id || 'America/Edmonton';
-    }
-    if (!state.timezones.some((c) => c.id === state.primaryTimezone)) {
-      state.primaryTimezone = state.timezones[0]?.id || 'America/Edmonton';
-    }
+    state.selectedWorldCity = ensureSelectedId(
+      state.worldClockCities,
+      state.selectedWorldCity,
+      'America/Edmonton'
+    );
+    state.primaryTimezone = ensureSelectedId(
+      state.timezones,
+      state.primaryTimezone,
+      'America/Edmonton'
+    );
 
     if (
+      migrated ||
       JSON.stringify(state.worldClockCities) !== prevWorld ||
       JSON.stringify(state.timezones) !== prevTz
     ) {
@@ -85,47 +90,4 @@ export function loadState() {
 
 export function saveState(state) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-export function formatDateKey(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-export function parseDateKey(key) {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-export function formatDateLabel(date) {
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-}
-
-export function formatDayHeader(date) {
-  return date.toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).toUpperCase();
-}
-
-export function isToday(date) {
-  const today = new Date();
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
-}
-
-export function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-export function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }

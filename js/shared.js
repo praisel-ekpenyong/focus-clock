@@ -1,5 +1,6 @@
 import { saveState } from './storage.js';
 import { startAmbientSound, stopAmbientSound } from './sounds.js';
+import { emitHourFormatChange } from './event-bus.js';
 
 let clockInterval = null;
 
@@ -16,7 +17,7 @@ export function initShared(state) {
       saveState(state);
       hourBtn.textContent = state.settings.hourFormat === 12 ? '12hr' : '24hr';
       updateHeaderClock(state);
-      window.dispatchEvent(new CustomEvent('hourformatchange'));
+      emitHourFormatChange();
     };
   }
 
@@ -40,10 +41,8 @@ function initMobileMenu() {
   }
 
   const close = () => app.classList.remove('sidebar-open');
-
   menuBtn.onclick = () => app.classList.toggle('sidebar-open');
   backdrop.onclick = close;
-
   sidebar.querySelectorAll('.sidebar-link').forEach((link) => {
     link.addEventListener('click', close);
   });

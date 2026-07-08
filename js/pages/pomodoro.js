@@ -1,10 +1,9 @@
-import {
-  saveState,
-  formatDateKey,
-  formatDateLabel,
-  isToday,
-  escapeHtml,
-} from '../storage.js';
+import { saveState } from '../storage.js';
+import { formatDateKey, formatDateLabel } from '../format-date.js';
+import { escapeHtml } from '../dom.js';
+import { APP_NAME } from '../constants.js';
+import { createPageScope } from '../page-lifecycle.js';
+import { readAlarmSound } from '../sound-settings.js';
 import { PomodoroTimer } from '../timer.js';
 import {
   getPendingTasks,
@@ -18,34 +17,25 @@ import {
 } from '../tasks.js';
 import { playAlarm } from '../sounds.js';
 import { showToast } from '../shared.js';
+import {
+  TOMATO_SVG,
+  renderTimerDisplayHtml,
+  settingsModalHtml,
+  pomodoroDocumentTitle,
+} from './pomodoro-helpers.js';
 
-let cleanup = null;
+let scope = null;
 let timer = null;
-
-const TOMATO_SVG = `<svg class="tomato-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9.5 2 7.5 3.5 7 5.5 5 5 3.5 6.5 3 8.5 3 11c0 4 3.5 7 9 7s9-3 9-7c0-2-.5-3.5-2-4-.5-2-2.5-3.5-5-3.5-.5-2-2.5-3.5-5-3.5z"/></svg>`;
+let pipWindow = null;
 
 export function renderPomodoro(outlet, state) {
-  if (cleanup) cleanup();
+  destroyPomodoro();
+  scope = createPageScope();
 
   let viewDate = new Date();
   let taskTab = 'pending';
   let showTaskForm = false;
   let editingTaskId = null;
-  let pipWindow = null;
-  const listeners = [];
-
-  function on(el, event, handler, options) {
-    if (!el) return;
-    el.addEventListener(event, handler, options);
-    listeners.push({ el, event, handler, options });
-  }
-
-  function removeListeners() {
-    listeners.forEach(({ el, event, handler, options }) => {
-      el.removeEventListener(event, handler, options);
-    });
-    listeners.length = 0;
-  }
 
   timer = new PomodoroTimer(state.settings, {
     onUpdate: () => {
@@ -162,23 +152,7 @@ export function renderPomodoro(outlet, state) {
       </section>
     </div>
 
-    <div class="modal-overlay hidden" id="settingsModal">
-      <div class="modal">
-        <label class="modal-label">Focus duration (minutes)</label>
-        <input type="number" class="modal-input" id="focusMinutesInput" min="1" max="180" value="${state.settings.focusMinutes}">
-        <label class="modal-label">Short break (minutes)</label>
-        <input type="number" class="modal-input" id="shortBreakInput" min="1" max="60" value="${state.settings.shortBreakMinutes}">
-        <label class="modal-label">Long break (minutes)</label>
-        <input type="number" class="modal-input" id="longBreakInput" min="1" max="60" value="${state.settings.longBreakMinutes}">
-        <label class="modal-label">Alarm sound</label>
-        <select class="modal-input" id="alarmSoundSelect">
-          <option value="beep">Beep</option>
-          <option value="chime">Chime</option>
-          <option value="alarm">Alarm</option>
-        </select>
-        <button class="btn-primary modal-submit" id="settingsSave">Save</button>
-      </div>
-    </div>
+    ${settingsModalHtml(state.settings)}
   `;
 
   function getTodaySessionCount() {
@@ -204,22 +178,8 @@ export function renderPomodoro(outlet, state) {
   }
 
   function renderTimerUI() {
-    const { hours, minutes, seconds } = timer.getDisplayTime();
-    const pad = (n) => String(n).padStart(2, '0');
-
     const display = outlet.querySelector('#timerDisplay');
-    if (hours > 0) {
-      display.innerHTML = `
-        <span>${pad(hours)}</span><span class="timer-sep">:</span>
-        <span>${pad(minutes)}</span><span class="timer-sep">:</span>
-        <span>${pad(seconds)}</span>
-      `;
-    } else {
-      display.innerHTML = `
-        <span>${pad(minutes)}</span><span class="timer-sep">:</span>
-        <span>${pad(seconds)}</span>
-      `;
-    }
+    display.innerHTML = renderTimerDisplayHtml(timer.getDisplayTime());
 
     outlet.querySelector('#progressFill').style.width = `${timer.getProgress()}%`;
 
@@ -276,13 +236,7 @@ export function renderPomodoro(outlet, state) {
   }
 
   function updateDocumentTitle() {
-    if (timer.isRunning) {
-      document.title = `${timer.formatTimeString()} - ${timer.getModeLabel()}`;
-    } else if (timer.isCompleted) {
-      document.title = `${timer.getModeLabel()} complete!`;
-    } else {
-      document.title = 'time.fyi - pomodoro timer';
-    }
+    document.title = pomodoroDocumentTitle(timer);
   }
 
   function bindTimerControls() {
@@ -565,52 +519,45 @@ export function renderPomodoro(outlet, state) {
     if (timeEl) timeEl.textContent = timer.formatTimeString();
   }
 
-  function closePiP() {
-    if (pipWindow && !pipWindow.closed) {
-      pipWindow.close();
-    }
-    pipWindow = null;
-  }
-
   // Task tabs
-  on(outlet.querySelector('#pendingTab'), 'click', () => {
+  scope.on(outlet.querySelector('#pendingTab'), 'click', () => {
     taskTab = 'pending';
     renderTasks();
   });
-  on(outlet.querySelector('#completedTab'), 'click', () => {
+  scope.on(outlet.querySelector('#completedTab'), 'click', () => {
     taskTab = 'completed';
     renderTasks();
   });
 
   // Date navigation
-  on(outlet.querySelector('#datePrev'), 'click', () => {
+  scope.on(outlet.querySelector('#datePrev'), 'click', () => {
     viewDate.setDate(viewDate.getDate() - 1);
     renderTasks();
   });
-  on(outlet.querySelector('#dateNext'), 'click', () => {
+  scope.on(outlet.querySelector('#dateNext'), 'click', () => {
     viewDate.setDate(viewDate.getDate() + 1);
     renderTasks();
   });
-  on(outlet.querySelector('#dateBtn'), 'click', () => {
+  scope.on(outlet.querySelector('#dateBtn'), 'click', () => {
     outlet.querySelector('#dateInput').showPicker?.() || outlet.querySelector('#dateInput').click();
   });
-  on(outlet.querySelector('#dateInput'), 'change', (e) => {
+  scope.on(outlet.querySelector('#dateInput'), 'change', (e) => {
     const [y, m, d] = e.target.value.split('-').map(Number);
     viewDate = new Date(y, m - 1, d);
     renderTasks();
   });
 
   // Task form
-  on(outlet.querySelector('#taskCancel'), 'click', closeTaskForm);
-  on(outlet.querySelector('#taskSave'), 'click', saveTask);
-  on(outlet.querySelector('#taskInput'), 'keydown', (e) => {
+  scope.on(outlet.querySelector('#taskCancel'), 'click', closeTaskForm);
+  scope.on(outlet.querySelector('#taskSave'), 'click', saveTask);
+  scope.on(outlet.querySelector('#taskInput'), 'keydown', (e) => {
     if (e.key === 'Enter') saveTask();
     if (e.key === 'Escape') closeTaskForm();
   });
 
   // Mode tabs
   outlet.querySelectorAll('.mode-tab').forEach((tab) => {
-    on(tab, 'click', () => {
+    scope.on(tab, 'click', () => {
       if (timer.isRunning || timer.isPaused) {
         timer.pause();
       }
@@ -621,7 +568,7 @@ export function renderPomodoro(outlet, state) {
 
   // Time adjust
   outlet.querySelectorAll('.adjust-btn').forEach((btn) => {
-    on(btn, 'click', () => {
+    scope.on(btn, 'click', () => {
       timer.addMinutes(parseInt(btn.dataset.add, 10));
       if (!timer.isRunning && !timer.isPaused && !timer.isCompleted) {
         timer.start();
@@ -630,11 +577,11 @@ export function renderPomodoro(outlet, state) {
   });
 
   // Timer panel actions
-  on(outlet.querySelector('#fullscreenBtn'), 'click', () => {
+  scope.on(outlet.querySelector('#fullscreenBtn'), 'click', () => {
     outlet.querySelector('#timerPanel').classList.toggle('fullscreen');
   });
-  on(outlet.querySelector('#pipBtn'), 'click', openPiP);
-  on(outlet.querySelector('#settingsBtn'), 'click', () => {
+  scope.on(outlet.querySelector('#pipBtn'), 'click', openPiP);
+  scope.on(outlet.querySelector('#settingsBtn'), 'click', () => {
     outlet.querySelector('#focusMinutesInput').value = state.settings.focusMinutes;
     outlet.querySelector('#shortBreakInput').value = state.settings.shortBreakMinutes;
     outlet.querySelector('#longBreakInput').value = state.settings.longBreakMinutes;
@@ -643,11 +590,11 @@ export function renderPomodoro(outlet, state) {
   });
 
   // Settings modal
-  on(outlet.querySelector('#settingsSave'), 'click', () => {
+  scope.on(outlet.querySelector('#settingsSave'), 'click', () => {
     const focus = parseInt(outlet.querySelector('#focusMinutesInput').value, 10);
     const shortBreak = parseInt(outlet.querySelector('#shortBreakInput').value, 10);
     const longBreak = parseInt(outlet.querySelector('#longBreakInput').value, 10);
-    const alarm = outlet.querySelector('#alarmSoundSelect').value;
+    const alarm = readAlarmSound(outlet.querySelector('#alarmSoundSelect'));
 
     if (!focus || !shortBreak || !longBreak) return;
 
@@ -662,17 +609,17 @@ export function renderPomodoro(outlet, state) {
   });
 
   // Active task banner
-  on(outlet.querySelector('#bannerCompleteBtn'), 'click', () => {
+  scope.on(outlet.querySelector('#bannerCompleteBtn'), 'click', () => {
     if (!timer.activeTaskId) return;
     state.tasks = toggleTaskComplete(state.tasks, timer.activeTaskId);
     saveState(state);
     clearActiveTask();
     renderTasks();
   });
-  on(outlet.querySelector('#bannerClearBtn'), 'click', clearActiveTask);
+  scope.on(outlet.querySelector('#bannerClearBtn'), 'click', clearActiveTask);
 
   // Close settings on overlay click
-  on(outlet.querySelector('#settingsModal'), 'click', (e) => {
+  scope.on(outlet.querySelector('#settingsModal'), 'click', (e) => {
     if (e.target === outlet.querySelector('#settingsModal')) {
       outlet.querySelector('#settingsModal').classList.add('hidden');
     }
@@ -683,21 +630,26 @@ export function renderPomodoro(outlet, state) {
   renderTasks();
   renderSessions();
   renderTimerUI();
+}
 
-  cleanup = () => {
-    if (timer) {
-      timer.stopTicking();
-      timer = null;
-    }
-    removeListeners();
-    closePiP();
-    document.title = 'time.fyi';
-    cleanup = null;
-  };
+function closePiP() {
+  if (pipWindow && !pipWindow.closed) {
+    pipWindow.close();
+  }
+  pipWindow = null;
 }
 
 export function destroyPomodoro() {
-  if (cleanup) cleanup();
+  if (timer) {
+    timer.stopTicking();
+    timer = null;
+  }
+  closePiP();
+  if (scope) {
+    scope.destroy();
+    scope = null;
+  }
+  document.title = APP_NAME;
 }
 
 export const pomodoroBreadcrumb = `

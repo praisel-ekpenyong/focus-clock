@@ -1,27 +1,23 @@
-import {
-  saveState,
-  formatDateKey,
-  formatDayHeader,
-  isToday,
-  escapeHtml,
-  generateId,
-} from '../storage.js';
+import { saveState } from '../storage.js';
+import { formatDateKey, formatDayHeader, isToday, generateId } from '../format-date.js';
+import { escapeHtml } from '../dom.js';
+import { createPageScope } from '../page-lifecycle.js';
 import {
   getPendingTasks,
   addTask,
-  updateTask,
   deleteTask,
   toggleTaskComplete,
 } from '../tasks.js';
 import { showToast } from '../shared.js';
 import { applyRoutines } from '../routines.js';
 
-let cleanup = null;
+let scope = null;
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function renderDailyPlanner(outlet, state) {
-  if (cleanup) cleanup();
+  if (scope) scope.destroy();
+  scope = createPageScope();
 
   if (applyRoutines(state)) saveState(state);
 
@@ -341,12 +337,13 @@ export function renderDailyPlanner(outlet, state) {
   });
 
   renderContent();
-
-  cleanup = () => { cleanup = null; };
 }
 
 export function destroyDailyPlanner() {
-  if (cleanup) cleanup();
+  if (scope) {
+    scope.destroy();
+    scope = null;
+  }
 }
 
 export const dailyPlannerBreadcrumb = `

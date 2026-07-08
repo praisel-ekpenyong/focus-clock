@@ -1,6 +1,8 @@
+import { padTime } from '../dom.js';
+import { createPageScope } from '../page-lifecycle.js';
 import { Stopwatch } from '../stopwatch-engine.js';
 
-let cleanup = null;
+let scope = null;
 let sw = null;
 
 function formatLapParts(ms) {
@@ -12,15 +14,15 @@ function formatLapParts(ms) {
   if (h > 0) parts.push(`${h}h`);
   if (m > 0 || h > 0) parts.push(`${m}m`);
   parts.push(`${s}s`);
-  parts.push(`${String(milli).padStart(3, '0')}ms`);
+  parts.push(`${padTime(milli, 3)}ms`);
   return parts.join(' ');
 }
 
 export function renderStopwatchPage(outlet) {
-  if (cleanup) cleanup();
-  if (sw) sw.destroy();
+  destroyStopwatchPage();
+  scope = createPageScope();
 
-  sw = new Stopwatch({ onUpdate: () => render(outlet) });
+  sw = new Stopwatch({ onUpdate: () => render() });
 
   outlet.innerHTML = `
     <div class="page-stopwatch">
@@ -50,10 +52,10 @@ export function renderStopwatchPage(outlet) {
 
     outlet.querySelector('#swDisplay').innerHTML = `
       <div class="sw-time-display">
-        ${hours > 0 ? `<span class="sw-part"><span class="sw-val">${String(hours).padStart(2,'0')}</span><span class="sw-unit">h</span></span>` : ''}
-        ${minutes > 0 || hours > 0 ? `<span class="sw-part"><span class="sw-val">${String(minutes).padStart(2,'0')}</span><span class="sw-unit">m</span></span>` : ''}
-        <span class="sw-part"><span class="sw-val">${String(seconds).padStart(2,'0')}</span><span class="sw-unit">s</span></span>
-        <span class="sw-part"><span class="sw-val">${String(milliseconds).padStart(3,'0')}</span><span class="sw-unit">ms</span></span>
+        ${hours > 0 ? `<span class="sw-part"><span class="sw-val">${padTime(hours)}</span><span class="sw-unit">h</span></span>` : ''}
+        ${minutes > 0 || hours > 0 ? `<span class="sw-part"><span class="sw-val">${padTime(minutes)}</span><span class="sw-unit">m</span></span>` : ''}
+        <span class="sw-part"><span class="sw-val">${padTime(seconds)}</span><span class="sw-unit">s</span></span>
+        <span class="sw-part"><span class="sw-val">${padTime(milliseconds, 3)}</span><span class="sw-unit">ms</span></span>
       </div>
     `;
 
@@ -115,15 +117,11 @@ export function renderStopwatchPage(outlet) {
   };
 
   render();
-
-  cleanup = () => {
-    if (sw) { sw.destroy(); sw = null; }
-    cleanup = null;
-  };
 }
 
 export function destroyStopwatchPage() {
-  if (cleanup) cleanup();
+  if (sw) { sw.destroy(); sw = null; }
+  if (scope) { scope.destroy(); scope = null; }
 }
 
 export const stopwatchBreadcrumb = `<span class="breadcrumb-item">Stopwatch</span>`;

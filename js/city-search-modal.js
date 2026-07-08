@@ -1,4 +1,5 @@
-import { escapeHtml, DEFAULT_WORLD_CLOCK_CITIES } from './storage.js';
+import { escapeHtml, formatCityLabel } from './dom.js';
+import { DEFAULT_CITIES } from './cities.js';
 import { searchTimezones } from './timezone-data.js';
 
 export function citySearchModalHtml(idPrefix) {
@@ -36,7 +37,7 @@ export function bindCitySearchModal(container, idPrefix, options) {
       (t) => !existingIds.includes(t.id) || t.id === replaceId
     );
     const pinned = !query && !replaceId
-      ? DEFAULT_WORLD_CLOCK_CITIES.filter((t) => !existingIds.includes(t.id))
+      ? DEFAULT_CITIES.filter((t) => !existingIds.includes(t.id))
       : [];
     const list = [
       ...pinned,
@@ -44,7 +45,7 @@ export function bindCitySearchModal(container, idPrefix, options) {
     ];
 
     results.innerHTML = list.map((t) => {
-      const label = escapeHtml(t.city) + (t.country ? ', ' + escapeHtml(t.country) : '');
+      const label = formatCityLabel(t.city, t.country);
       const idLine = showTimezoneId
         ? '<span class="tz-search-id">' + escapeHtml(t.id) + '</span>'
         : '';
@@ -59,11 +60,7 @@ export function bindCitySearchModal(container, idPrefix, options) {
     results.querySelectorAll('.tz-search-item').forEach((btn) => {
       btn.onclick = () => {
         onSelect(
-          {
-            id: btn.dataset.id,
-            city: btn.dataset.city,
-            country: btn.dataset.country,
-          },
+          { id: btn.dataset.id, city: btn.dataset.city, country: btn.dataset.country },
           { replaceId }
         );
         close();

@@ -1,4 +1,4 @@
-const CACHE = 'timefyi-v4';
+const CACHE = 'focus-clock-v1';
 const ASSETS = [
   '/',
   '/index.html',
@@ -6,6 +6,15 @@ const ASSETS = [
   '/manifest.json',
   '/icon.svg',
   '/js/app.js',
+  '/js/constants.js',
+  '/js/dom.js',
+  '/js/format-date.js',
+  '/js/format-time.js',
+  '/js/timer-clock.js',
+  '/js/page-lifecycle.js',
+  '/js/event-bus.js',
+  '/js/sound-settings.js',
+  '/js/cities.js',
   '/js/storage.js',
   '/js/router.js',
   '/js/shared.js',
@@ -19,6 +28,7 @@ const ASSETS = [
   '/js/sounds.js',
   '/js/timezone-data.js',
   '/js/timezone-utils.js',
+  '/js/pages/pomodoro-helpers.js',
   '/js/pages/pomodoro.js',
   '/js/pages/timezones.js',
   '/js/pages/daily-planner.js',

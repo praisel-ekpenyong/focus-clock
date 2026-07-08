@@ -1,4 +1,9 @@
-import { saveState, escapeHtml, generateId } from '../storage.js';
+import { saveState } from '../storage.js';
+import { generateId } from '../format-date.js';
+import { escapeHtml, padTime } from '../dom.js';
+import { APP_NAME } from '../constants.js';
+import { createPageScope } from '../page-lifecycle.js';
+import { alarmSoundSelectHtml, readAlarmSound } from '../sound-settings.js';
 import { CountdownTimer } from '../countdown-timer.js';
 import { playAlarm, playChime } from '../sounds.js';
 import { showToast } from '../shared.js';
@@ -14,13 +19,13 @@ const BUILT_IN_PRESETS = [
   { label: '3 hour', h: 3, m: 0, s: 0 },
 ];
 
-let cleanup = null;
+let scope = null;
 let timer = null;
 let lastChimeKey = null;
 
 export function renderTimerPage(outlet, state) {
-  if (cleanup) cleanup();
-  if (timer) timer.destroy();
+  destroyTimerPage();
+  scope = createPageScope();
 
   function checkChime() {
     const interval = state.settings.timerChimeInterval;
@@ -36,12 +41,12 @@ export function renderTimerPage(outlet, state) {
   timer = new CountdownTimer({
     onUpdate: () => {
       checkChime();
-      renderRunning(outlet);
+      renderRunning();
     },
     onComplete: () => {
       playAlarm(state.settings.timerSound);
       document.title = "Time's up!";
-      renderRunning(outlet);
+      renderRunning();
     },
   });
 
@@ -93,11 +98,7 @@ export function renderTimerPage(outlet, state) {
     <div class="modal-overlay hidden" id="timerSoundModal">
       <div class="modal">
         <label class="modal-label">Alarm sound when timer ends</label>
-        <select class="modal-input" id="timerSoundSelect">
-          <option value="beep">Beep</option>
-          <option value="chime">Chime</option>
-          <option value="alarm">Alarm</option>
-        </select>
+        ${alarmSoundSelectHtml('timerSoundSelect', state.settings.timerSound)}
         <label class="modal-label">Interval chime during countdown</label>
         <select class="modal-input" id="timerChimeSelect">
           <option value="0">Off</option>
@@ -126,7 +127,7 @@ export function renderTimerPage(outlet, state) {
     let v = parseInt(el.value, 10);
     if (isNaN(v)) v = 0;
     v = Math.min(99, Math.max(0, v));
-    el.value = String(v).padStart(2, '0');
+    el.value = padTime(v);
     return v;
   }
 
@@ -134,8 +135,8 @@ export function renderTimerPage(outlet, state) {
     const el = outlet.querySelector(`#${id}`);
     el.onblur = () => clampInput(el);
     el.onkeydown = (e) => {
-      if (e.key === 'ArrowUp') { el.value = String(Math.min(99, parseInt(el.value || 0, 10) + 1)).padStart(2, '0'); e.preventDefault(); }
-      if (e.key === 'ArrowDown') { el.value = String(Math.max(0, parseInt(el.value || 0, 10) - 1)).padStart(2, '0'); e.preventDefault(); }
+      if (e.key === 'ArrowUp') { el.value = padTime(Math.min(99, parseInt(el.value || 0, 10) + 1)); e.preventDefault(); }
+      if (e.key === 'ArrowDown') { el.value = padTime(Math.max(0, parseInt(el.value || 0, 10) - 1)); e.preventDefault(); }
     };
   });
 
@@ -180,12 +181,12 @@ export function renderTimerPage(outlet, state) {
         const h = parseInt(btn.dataset.h, 10);
         const m = parseInt(btn.dataset.m, 10);
         const s = parseInt(btn.dataset.s, 10);
-        outlet.querySelector('#durHours').value = String(h).padStart(2, '0');
-        outlet.querySelector('#durMinutes').value = String(m).padStart(2, '0');
-        outlet.querySelector('#durSeconds').value = String(s).padStart(2, '0');
+        outlet.querySelector('#durHours').value = padTime(h);
+        outlet.querySelector('#durMinutes').value = padTime(m);
+        outlet.querySelector('#durSeconds').value = padTime(s);
         timer.setDuration(h, m, s, btn.dataset.label);
         showSetup(false);
-        renderRunning(outlet);
+        renderRunning();
       };
     });
   }
@@ -203,14 +204,14 @@ export function renderTimerPage(outlet, state) {
     showSetup(false);
     const { hours, minutes, seconds } = timer.getDisplay();
     const elapsed = timer.getElapsed();
-    const h = hours > 0, m = minutes > 0 || h, s = true;
+    const h = hours > 0, m = minutes > 0 || h;
 
     outlet.querySelector('#timerRunningView').innerHTML = `
       ${timer.label ? `<div class="timer-label-badge"><span class="timer-pulse"></span>${escapeHtml(timer.label)}</div>` : '<p class="timer-remaining-label">Remaining Time</p>'}
       <div class="timer-remaining-display">
-        ${h ? `<div class="timer-unit-block"><span class="timer-unit-val">${String(hours).padStart(2,'0')}</span><span class="timer-unit-name">Hr</span></div>` : ''}
-        ${m ? `<div class="timer-unit-block ${!h ? '' : ''}"><span class="timer-unit-val">${String(minutes).padStart(2,'0')}</span><span class="timer-unit-name">Min</span></div>` : ''}
-        <div class="timer-unit-block"><span class="timer-unit-val">${String(seconds).padStart(2,'0')}</span><span class="timer-unit-name">Sec</span></div>
+        ${h ? `<div class="timer-unit-block"><span class="timer-unit-val">${padTime(hours)}</span><span class="timer-unit-name">Hr</span></div>` : ''}
+        ${m ? `<div class="timer-unit-block"><span class="timer-unit-val">${padTime(minutes)}</span><span class="timer-unit-name">Min</span></div>` : ''}
+        <div class="timer-unit-block"><span class="timer-unit-val">${padTime(seconds)}</span><span class="timer-unit-name">Sec</span></div>
       </div>
       <div class="timer-progress-section">
         <div class="timer-progress-header">
@@ -240,8 +241,7 @@ export function renderTimerPage(outlet, state) {
     });
 
     if (timer.isRunning) {
-      const pad = (n) => String(n).padStart(2, '0');
-      document.title = `${pad(hours)}:${pad(minutes)}:${pad(seconds)} - Timer`;
+      document.title = `${padTime(hours)}:${padTime(minutes)}:${padTime(seconds)} - Timer`;
     }
   }
 
@@ -251,7 +251,7 @@ export function renderTimerPage(outlet, state) {
     timer.setDuration(h, m, s);
     lastChimeKey = null;
     timer.start();
-    renderRunning(outlet);
+    renderRunning();
   };
 
   outlet.querySelector('#timerSettingsBtn').onclick = () => {
@@ -260,7 +260,7 @@ export function renderTimerPage(outlet, state) {
     outlet.querySelector('#timerSoundModal').classList.remove('hidden');
   };
   outlet.querySelector('#timerSoundSave').onclick = () => {
-    state.settings.timerSound = outlet.querySelector('#timerSoundSelect').value;
+    state.settings.timerSound = readAlarmSound(outlet.querySelector('#timerSoundSelect'));
     state.settings.timerChimeInterval = parseInt(outlet.querySelector('#timerChimeSelect').value, 10);
     saveState(state);
     outlet.querySelector('#timerSoundModal').classList.add('hidden');
@@ -288,16 +288,12 @@ export function renderTimerPage(outlet, state) {
 
   showSetup(true);
   renderPresets();
-
-  cleanup = () => {
-    if (timer) { timer.destroy(); timer = null; }
-    document.title = 'time.fyi';
-    cleanup = null;
-  };
 }
 
 export function destroyTimerPage() {
-  if (cleanup) cleanup();
+  if (timer) { timer.destroy(); timer = null; }
+  if (scope) { scope.destroy(); scope = null; }
+  document.title = APP_NAME;
 }
 
 export const timerBreadcrumb = `<span class="breadcrumb-item">Timer</span>`;

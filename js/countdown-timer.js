@@ -1,16 +1,23 @@
+import { createTimerClock } from './timer-clock.js';
+import { secondsToParts } from './format-time.js';
+
 export class CountdownTimer {
   constructor(callbacks) {
     this.callbacks = callbacks;
+    this.clock = createTimerClock(400);
     this.totalSeconds = 0;
     this.remainingSeconds = 0;
-    this.isRunning = false;
-    this.isPaused = false;
     this.isCompleted = false;
-    this.startedAt = null;
-    this.pausedAt = null;
-    this.accumulatedPause = 0;
-    this.tickInterval = null;
     this.label = '';
+    this._syncFlags();
+  }
+
+  get isRunning() { return this.clock.isRunning; }
+  get isPaused() { return this.clock.isPaused; }
+
+  _syncFlags() {
+    this.isRunning = this.clock.isRunning;
+    this.isPaused = this.clock.isPaused;
   }
 
   setDuration(hours, minutes, seconds, label = '') {
@@ -35,35 +42,23 @@ export class CountdownTimer {
 
   start() {
     if (this.isCompleted || this.remainingSeconds <= 0) return;
-    this.isRunning = true;
-    this.isPaused = false;
     this.isCompleted = false;
-    if (!this.startedAt) this.startedAt = Date.now();
-    if (this.pausedAt) {
-      this.accumulatedPause += Date.now() - this.pausedAt;
-      this.pausedAt = null;
-    }
-    this.tickInterval = setInterval(() => this.tick(), 400);
+    this.clock.resumeClock();
+    this._syncFlags();
+    this.clock.startTick(() => this.tick());
     this.callbacks.onUpdate();
   }
 
   pause() {
-    if (!this.isRunning) return;
-    this.isRunning = false;
-    this.isPaused = true;
-    this.pausedAt = Date.now();
-    clearInterval(this.tickInterval);
+    this.clock.pauseClock();
+    this._syncFlags();
     this.callbacks.onUpdate();
   }
 
   reset(update = true) {
-    this.isRunning = false;
-    this.isPaused = false;
     this.isCompleted = false;
-    this.startedAt = null;
-    this.pausedAt = null;
-    this.accumulatedPause = 0;
-    clearInterval(this.tickInterval);
+    this.clock.resetClock();
+    this._syncFlags();
     if (update) {
       this.remainingSeconds = this.totalSeconds;
       this.callbacks.onUpdate();
@@ -71,18 +66,18 @@ export class CountdownTimer {
   }
 
   complete() {
-    this.isRunning = false;
-    this.isPaused = false;
     this.isCompleted = true;
     this.remainingSeconds = 0;
-    clearInterval(this.tickInterval);
+    this.clock.pauseClock();
+    this.clock.stopTick();
+    this._syncFlags();
     this.callbacks.onComplete();
     this.callbacks.onUpdate();
   }
 
   tick() {
-    if (!this.isRunning) return;
-    const elapsed = Math.floor((Date.now() - this.startedAt - this.accumulatedPause) / 1000);
+    if (!this.clock.isRunning) return;
+    const elapsed = this.clock.getElapsedSeconds();
     this.remainingSeconds = Math.max(0, this.totalSeconds - elapsed);
     if (this.remainingSeconds <= 0) {
       this.complete();
@@ -92,21 +87,11 @@ export class CountdownTimer {
   }
 
   getDisplay() {
-    const s = this.remainingSeconds;
-    return {
-      hours: Math.floor(s / 3600),
-      minutes: Math.floor((s % 3600) / 60),
-      seconds: s % 60,
-    };
+    return secondsToParts(this.remainingSeconds);
   }
 
   getElapsed() {
-    const elapsed = this.totalSeconds - this.remainingSeconds;
-    return {
-      hours: Math.floor(elapsed / 3600),
-      minutes: Math.floor((elapsed % 3600) / 60),
-      seconds: elapsed % 60,
-    };
+    return secondsToParts(this.totalSeconds - this.remainingSeconds);
   }
 
   getProgress() {
@@ -115,6 +100,6 @@ export class CountdownTimer {
   }
 
   destroy() {
-    clearInterval(this.tickInterval);
+    this.clock.destroy();
   }
 }

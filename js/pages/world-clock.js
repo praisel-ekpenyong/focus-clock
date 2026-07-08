@@ -1,14 +1,15 @@
-import { saveState, escapeHtml } from '../storage.js';
-import {
-  formatTimeParts,
-  formatDateInZone,
-} from '../timezone-utils.js';
+import { saveState } from '../storage.js';
+import { formatCityLabel } from '../dom.js';
+import { addCityToList, removeCityFromList, ensureSelectedId } from '../cities.js';
+import { formatTimeParts, formatDateInZone } from '../timezone-utils.js';
 import { citySearchModalHtml, bindCitySearchModal } from '../city-search-modal.js';
+import { createPageScope } from '../page-lifecycle.js';
 
-let cleanup = null;
+let scope = null;
 
 export function renderWorldClock(outlet, state) {
-  if (cleanup) cleanup();
+  if (scope) scope.destroy();
+  scope = createPageScope();
 
   let hour12 = state.settings.hourFormat === 12;
 
@@ -33,12 +34,10 @@ export function renderWorldClock(outlet, state) {
     ${citySearchModalHtml('wc')}
   `;
 
-  let tickInterval = null;
-
   const cityModal = bindCitySearchModal(outlet, 'wc', {
     getExistingIds: () => state.worldClockCities.map((c) => c.id),
     onSelect: (city) => {
-      state.worldClockCities.push(city);
+      state.worldClockCities = addCityToList(state.worldClockCities, city);
       state.selectedWorldCity = city.id;
       saveState(state);
       renderList();
@@ -59,10 +58,9 @@ export function renderWorldClock(outlet, state) {
     const list = outlet.querySelector('#wcCityList');
     list.innerHTML = state.worldClockCities.map((city) => {
       const isActive = city.id === state.selectedWorldCity;
-      const country = city.country ? ', ' + escapeHtml(city.country) : '';
       return (
         '<li class="wc-city-item' + (isActive ? ' active' : '') + '" data-id="' + city.id + '">' +
-        '<span class="wc-city-name">' + escapeHtml(city.city) + country + '</span>' +
+        '<span class="wc-city-name">' + formatCityLabel(city.city, city.country) + '</span>' +
         '<span class="wc-city-time">' + formatCityTime(city.id, now) + '</span>' +
         (state.worldClockCities.length > 1 ? '<button class="wc-city-delete" data-delete>×</button>' : '') +
         '</li>'
@@ -73,10 +71,12 @@ export function renderWorldClock(outlet, state) {
       item.onclick = (e) => {
         if (e.target.closest('[data-delete]')) {
           const id = item.dataset.id;
-          state.worldClockCities = state.worldClockCities.filter((c) => c.id !== id);
-          if (state.selectedWorldCity === id) {
-            state.selectedWorldCity = state.worldClockCities[0]?.id;
-          }
+          state.worldClockCities = removeCityFromList(state.worldClockCities, id);
+          state.selectedWorldCity = ensureSelectedId(
+            state.worldClockCities,
+            state.selectedWorldCity,
+            'America/Edmonton'
+          );
           saveState(state);
           renderList();
           renderDisplay();
@@ -111,10 +111,9 @@ export function renderWorldClock(outlet, state) {
     const now = new Date();
     const parts = formatTimeParts(city.id, hour12, now);
     const dateStr = formatDateInZone(city.id, now);
-    const country = city.country ? ', ' + escapeHtml(city.country) : '';
 
     outlet.querySelector('#wcMainDisplay').innerHTML = (
-      '<p class="wc-location">' + escapeHtml(city.city) + country + '</p>' +
+      '<p class="wc-location">' + formatCityLabel(city.city, city.country) + '</p>' +
       '<div class="wc-big-time">' +
       '<span class="wc-big-hour">' + parts.hour + '</span>' +
       '<span class="wc-big-colon wc-blink">:</span>' +
@@ -134,13 +133,12 @@ export function renderWorldClock(outlet, state) {
     }
     const now = new Date();
     const parts = formatTimeParts(city.id, hour12, now);
-    const dateStr = formatDateInZone(city.id, now);
     display.querySelector('.wc-big-hour').textContent = parts.hour;
     display.querySelector('.wc-big-minute').textContent = parts.minute;
     const ampm = display.querySelector('.wc-big-ampm');
     if (ampm) ampm.textContent = parts.amPm;
     const dateEl = display.querySelector('.wc-date');
-    if (dateEl) dateEl.textContent = dateStr;
+    if (dateEl) dateEl.textContent = formatDateInZone(city.id, now);
   }
 
   outlet.querySelector('#wcAddBtn').onclick = () => cityModal.open();
@@ -148,29 +146,25 @@ export function renderWorldClock(outlet, state) {
     outlet.querySelector('.wc-display-panel').classList.toggle('wc-fullscreen');
   };
 
-  const onHourChange = () => {
+  scope.onHourFormatChange(() => {
     hour12 = state.settings.hourFormat === 12;
     renderList();
     renderDisplay();
-  };
-  window.addEventListener('hourformatchange', onHourChange);
+  });
 
   renderList();
   renderDisplay();
-  tickInterval = setInterval(() => {
+  scope.interval(() => {
     updateListTimes();
     updateDisplayTime();
   }, 1000);
-
-  cleanup = () => {
-    clearInterval(tickInterval);
-    window.removeEventListener('hourformatchange', onHourChange);
-    cleanup = null;
-  };
 }
 
 export function destroyWorldClock() {
-  if (cleanup) cleanup();
+  if (scope) {
+    scope.destroy();
+    scope = null;
+  }
 }
 
-export const worldClockBreadcrumb = `<span class="breadcrumb-item">World Clock</span>`;
+export const worldClockBreadcrumb = '<span class="breadcrumb-item">World Clock</span>';

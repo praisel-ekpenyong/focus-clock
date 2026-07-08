@@ -1,6 +1,6 @@
 {
-  "name": "time.fyi",
-  "short_name": "time.fyi",
+  "name": "Focus Clock",
+  "short_name": "Focus Clock",
   "description": "All your time tools in one place — pomodoro, timezones, planner, timer, and stopwatch.",
   "start_url": "/",
   "display": "standalone",

@@ -2,6 +2,7 @@ import { loadState, saveState } from './storage.js';
 import { registerRoute, initRouter } from './router.js';
 import { initShared } from './shared.js';
 import { applyHashParams, parseRoutePath } from './url-state.js';
+import { ROUTES } from './constants.js';
 import { renderPomodoro, destroyPomodoro, pomodoroBreadcrumb } from './pages/pomodoro.js';
 import { renderTimezones, destroyTimezones, timezonesBreadcrumb } from './pages/timezones.js';
 import { renderDailyPlanner, destroyDailyPlanner, dailyPlannerBreadcrumb } from './pages/daily-planner.js';
@@ -32,42 +33,42 @@ function bindWorkspaceButtons() {
 }
 
 registerRoute('/pomodoro', {
-  title: 'time.fyi - pomodoro timer',
+  title: ROUTES['/pomodoro'].pageTitle,
   breadcrumb: pomodoroBreadcrumb,
   render: (outlet) => { renderPomodoro(outlet, state); bindWorkspaceButtons(); },
   destroy: destroyPomodoro,
 });
 
 registerRoute('/timezones', {
-  title: 'time.fyi - timezones',
+  title: ROUTES['/timezones'].pageTitle,
   breadcrumb: timezonesBreadcrumb,
   render: (outlet) => renderTimezones(outlet, state),
   destroy: destroyTimezones,
 });
 
 registerRoute('/daily-planner', {
-  title: 'time.fyi - daily planner',
+  title: ROUTES['/daily-planner'].pageTitle,
   breadcrumb: dailyPlannerBreadcrumb,
   render: (outlet) => { renderDailyPlanner(outlet, state); bindWorkspaceButtons(); },
   destroy: destroyDailyPlanner,
 });
 
 registerRoute('/time', {
-  title: 'time.fyi - world clock',
+  title: ROUTES['/time'].pageTitle,
   breadcrumb: worldClockBreadcrumb,
   render: (outlet) => renderWorldClock(outlet, state),
   destroy: destroyWorldClock,
 });
 
 registerRoute('/timer', {
-  title: 'time.fyi - timer',
+  title: ROUTES['/timer'].pageTitle,
   breadcrumb: timerBreadcrumb,
   render: (outlet) => renderTimerPage(outlet, state),
   destroy: destroyTimerPage,
 });
 
 registerRoute('/stopwatch', {
-  title: 'time.fyi - stopwatch',
+  title: ROUTES['/stopwatch'].pageTitle,
   breadcrumb: stopwatchBreadcrumb,
   render: (outlet) => renderStopwatchPage(outlet),
   destroy: destroyStopwatchPage,

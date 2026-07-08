@@ -1,4 +1,7 @@
-import { saveState, escapeHtml } from '../storage.js';
+import { saveState } from '../storage.js';
+import { formatCityLabel } from '../dom.js';
+import { addCityToList, removeCityFromList, replaceCityInList, ensureSelectedId } from '../cities.js';
+import { createPageScope } from '../page-lifecycle.js';
 import {
   formatTimeParts,
   getGmtOffset,
@@ -11,13 +14,14 @@ import {
 import { showToast } from '../shared.js';
 import { citySearchModalHtml, bindCitySearchModal } from '../city-search-modal.js';
 
-let cleanup = null;
+let scope = null;
 
 const GRID_ICON = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>';
 const LIST_ICON = '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';
 
 export function renderTimezones(outlet, state) {
-  if (cleanup) cleanup();
+  if (scope) scope.destroy();
+  scope = createPageScope();
 
   let hour12 = state.settings.hourFormat === 12;
   const primary = () =>
@@ -41,17 +45,16 @@ export function renderTimezones(outlet, state) {
 
   const grid = outlet.querySelector('#tzGrid');
   const viewIcon = outlet.querySelector('#tzViewIcon');
-  let tickInterval = null;
   let scrubbing = false;
 
   const cityModal = bindCitySearchModal(outlet, 'tz', {
     getExistingIds: () => state.timezones.map((t) => t.id),
     onSelect: (tz, { replaceId }) => {
       if (replaceId) {
-        state.timezones = state.timezones.map((t) => (t.id === replaceId ? tz : t));
+        state.timezones = replaceCityInList(state.timezones, replaceId, tz);
         if (state.primaryTimezone === replaceId) state.primaryTimezone = tz.id;
-      } else if (!state.timezones.find((t) => t.id === tz.id)) {
-        state.timezones.push(tz);
+      } else {
+        state.timezones = addCityToList(state.timezones, tz);
       }
       saveState(state);
       renderGrid();
@@ -74,13 +77,11 @@ export function renderTimezones(outlet, state) {
     const diffDay = p && isDifferentDay(p.id, tz.id, now);
     const sliderPos = (hour / 24) * 100;
     const interactive = isPrimary && state.tzScrubOffsetMs !== 0;
-    const country = tz.country ? ', ' + escapeHtml(tz.country) : '';
-
     return (
       '<div class="tz-card' + (isPrimary ? ' tz-card-primary' : '') +
       (interactive ? ' tz-card-scrubbed' : '') + '" data-id="' + tz.id + '">' +
       '<div class="tz-card-header">' +
-      '<span class="tz-card-location">' + escapeHtml(tz.city) + country + '</span>' +
+      '<span class="tz-card-location">' + formatCityLabel(tz.city, tz.country) + '</span>' +
       '<div class="tz-card-actions">' +
       (state.tzScrubOffsetMs !== 0 && isPrimary ? '<button class="tz-reset-btn" data-reset title="Reset to now">↺</button>' : '') +
       '<button class="tz-edit-btn" data-edit title="Change timezone">✎</button>' +
@@ -158,9 +159,9 @@ export function renderTimezones(outlet, state) {
       card.onclick = (e) => {
         if (e.target.closest('[data-delete]')) {
           const id = card.dataset.id;
-          state.timezones = state.timezones.filter((t) => t.id !== id);
+          state.timezones = removeCityFromList(state.timezones, id);
           if (state.primaryTimezone === id) {
-            state.primaryTimezone = state.timezones[0]?.id;
+            state.primaryTimezone = ensureSelectedId(state.timezones, state.primaryTimezone, 'America/Edmonton');
             state.tzScrubOffsetMs = 0;
           }
           saveState(state);
@@ -250,25 +251,21 @@ export function renderTimezones(outlet, state) {
     navigator.clipboard.writeText(url).then(() => showToast('URL copied!'));
   };
 
-  const onHourFormatChange = () => {
+  scope.onHourFormatChange(() => {
     hour12 = state.settings.hourFormat === 12;
     renderGrid();
-  };
-  window.addEventListener('hourformatchange', onHourFormatChange);
+  });
 
   updateViewIcon();
   renderGrid();
-  tickInterval = setInterval(updateTimes, 1000);
-
-  cleanup = () => {
-    clearInterval(tickInterval);
-    window.removeEventListener('hourformatchange', onHourFormatChange);
-    cleanup = null;
-  };
+  scope.interval(updateTimes, 1000);
 }
 
 export function destroyTimezones() {
-  if (cleanup) cleanup();
+  if (scope) {
+    scope.destroy();
+    scope = null;
+  }
 }
 
 export const timezonesBreadcrumb = `
