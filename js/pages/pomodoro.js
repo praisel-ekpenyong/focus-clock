@@ -19,7 +19,7 @@ import { playAlarm } from '../sounds.js';
 import { showToast } from '../shared.js';
 import {
   TOMATO_SVG,
-  renderTimerDisplayHtml,
+  updateTimerDisplay,
   settingsModalHtml,
   pomodoroDocumentTitle,
 } from './pomodoro-helpers.js';
@@ -177,15 +177,32 @@ export function renderPomodoro(outlet, state) {
     }
   }
 
+  let lastControlPhase = null;
+
+  function getControlPhase() {
+    if (timer.isCompleted) return 'completed';
+    if (timer.isRunning) return 'running';
+    if (timer.isPaused) return 'paused';
+    return 'idle';
+  }
+
   function renderTimerUI() {
     const display = outlet.querySelector('#timerDisplay');
-    display.innerHTML = renderTimerDisplayHtml(timer.getDisplayTime());
+    updateTimerDisplay(display, timer.getDisplayTime());
 
     outlet.querySelector('#progressFill').style.width = `${timer.getProgress()}%`;
 
     outlet.querySelectorAll('.mode-tab').forEach((tab) => {
       tab.classList.toggle('active', tab.dataset.mode === timer.mode);
     });
+
+    const phase = getControlPhase();
+    if (phase === lastControlPhase) {
+      updateActiveTaskBanner();
+      updateDocumentTitle();
+      return;
+    }
+    lastControlPhase = phase;
 
     const controls = outlet.querySelector('#timerControls');
     if (timer.isCompleted) {
@@ -596,7 +613,10 @@ export function renderPomodoro(outlet, state) {
     const longBreak = parseInt(outlet.querySelector('#longBreakInput').value, 10);
     const alarm = readAlarmSound(outlet.querySelector('#alarmSoundSelect'));
 
-    if (!focus || !shortBreak || !longBreak) return;
+    if (!focus || !shortBreak || !longBreak) {
+      showToast('Enter valid durations for all timer modes');
+      return;
+    }
 
     state.settings.focusMinutes = focus;
     state.settings.shortBreakMinutes = shortBreak;
@@ -641,7 +661,7 @@ function closePiP() {
 
 export function destroyPomodoro() {
   if (timer) {
-    timer.stopTicking();
+    timer.destroy();
     timer = null;
   }
   closePiP();

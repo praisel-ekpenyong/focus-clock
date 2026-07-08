@@ -4,7 +4,7 @@ import { msToParts } from './format-time.js';
 export class Stopwatch {
   constructor(callbacks) {
     this.callbacks = callbacks;
-    this.clock = createTimerClock(10);
+    this.clock = createTimerClock(50);
     this.laps = [];
     this._syncFlags();
   }

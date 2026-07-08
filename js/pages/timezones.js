@@ -15,6 +15,7 @@ import { showToast } from '../shared.js';
 import { citySearchModalHtml, bindCitySearchModal } from '../city-search-modal.js';
 
 let scope = null;
+let scrubEndCleanup = null;
 
 const GRID_ICON = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>';
 const LIST_ICON = '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';
@@ -214,11 +215,13 @@ export function renderTimezones(outlet, state) {
       document.removeEventListener('mouseup', onEnd);
       document.removeEventListener('touchmove', onMove);
       document.removeEventListener('touchend', onEnd);
+      scrubEndCleanup = null;
     };
 
     track.onmousedown = (e) => {
       scrubbing = true;
       scrubFromEvent(e, track);
+      scrubEndCleanup = onEnd;
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onEnd);
     };
@@ -226,6 +229,7 @@ export function renderTimezones(outlet, state) {
     track.ontouchstart = (e) => {
       scrubbing = true;
       scrubFromEvent(e, track);
+      scrubEndCleanup = onEnd;
       document.addEventListener('touchmove', onMove, { passive: false });
       document.addEventListener('touchend', onEnd);
     };
@@ -248,7 +252,9 @@ export function renderTimezones(outlet, state) {
     ).join(',');
     const url = window.location.origin + window.location.pathname +
       '#/timezones?d=' + encodeURIComponent(ids) + '&h=' + state.settings.hourFormat;
-    navigator.clipboard.writeText(url).then(() => showToast('URL copied!'));
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('URL copied!'))
+      .catch(() => showToast('Could not copy URL'));
   };
 
   scope.onHourFormatChange(() => {
@@ -262,6 +268,8 @@ export function renderTimezones(outlet, state) {
 }
 
 export function destroyTimezones() {
+  scrubEndCleanup?.();
+  scrubEndCleanup = null;
   if (scope) {
     scope.destroy();
     scope = null;
