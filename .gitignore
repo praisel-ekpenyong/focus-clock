@@ -6,6 +6,7 @@ desktop.ini
 # Editor / tooling
 .vscode/
 .idea/
+node_modules/
 
 # Cursor / agent runtime (not part of the app)
 terminals/

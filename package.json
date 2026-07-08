@@ -1,0 +1,15 @@
+{
+  "name": "focus-clock",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "description": "All your time tools in one place — pomodoro, timezones, planner, timer, and stopwatch.",
+  "scripts": {
+    "dev": "npx --yes serve . -l 8080",
+    "start": "npm run dev",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

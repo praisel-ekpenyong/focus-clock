@@ -1,6 +1,6 @@
 import { saveState } from './storage.js';
 import { startAmbientSound, stopAmbientSound } from './sounds.js';
-import { emitHourFormatChange } from './event-bus.js';
+import { emitHourFormatChange, subscribeStorageSaveFailed } from './event-bus.js';
 
 let clockInterval = null;
 
@@ -24,6 +24,9 @@ export function initShared(state) {
   initMobileMenu();
   initPlaceholderButtons();
   initFocusSounds(state);
+  subscribeStorageSaveFailed(() => {
+    showToast('Could not save. Storage may be full.');
+  });
 }
 
 function initMobileMenu() {

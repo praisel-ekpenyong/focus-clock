@@ -7,15 +7,30 @@ export const TOMATO_SVG = '<svg class="tomato-icon" viewBox="0 0 24 24" fill="cu
 export function renderTimerDisplayHtml(parts) {
   if (parts.hours > 0) {
     return (
-      `<span>${padTime(parts.hours)}</span><span class="timer-sep">:</span>` +
-      `<span>${padTime(parts.minutes)}</span><span class="timer-sep">:</span>` +
-      `<span>${padTime(parts.seconds)}</span>`
+      `<span data-t="h">${padTime(parts.hours)}</span><span class="timer-sep">:</span>` +
+      `<span data-t="m">${padTime(parts.minutes)}</span><span class="timer-sep">:</span>` +
+      `<span data-t="s">${padTime(parts.seconds)}</span>`
     );
   }
   return (
-    `<span>${padTime(parts.minutes)}</span><span class="timer-sep">:</span>` +
-    `<span>${padTime(parts.seconds)}</span>`
+    `<span data-t="m">${padTime(parts.minutes)}</span><span class="timer-sep">:</span>` +
+    `<span data-t="s">${padTime(parts.seconds)}</span>`
   );
+}
+
+export function updateTimerDisplay(displayEl, parts) {
+  const layout = parts.hours > 0 ? 'hms' : 'ms';
+  if (displayEl.dataset.layout !== layout) {
+    displayEl.innerHTML = renderTimerDisplayHtml(parts);
+    displayEl.dataset.layout = layout;
+    return;
+  }
+  const h = displayEl.querySelector('[data-t="h"]');
+  if (h) h.textContent = padTime(parts.hours);
+  const m = displayEl.querySelector('[data-t="m"]');
+  const s = displayEl.querySelector('[data-t="s"]');
+  if (m) m.textContent = padTime(parts.minutes);
+  if (s) s.textContent = padTime(parts.seconds);
 }
 
 export function renderTimerControlsHtml(timer) {

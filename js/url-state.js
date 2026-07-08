@@ -1,11 +1,20 @@
 import { COMMON_TIMEZONES } from './timezone-data.js';
 import { saveState } from './storage.js';
+import { isValidTimezone } from './timezone-utils.js';
+
+const MAX_TIMEZONE_URL_ENTRIES = 20;
 
 function resolveTimezone(id) {
-  const found = COMMON_TIMEZONES.find((t) => t.id === id);
+  const clean = id.replace('-primary', '').trim();
+  if (!isValidTimezone(clean)) {
+    const found = COMMON_TIMEZONES.find((t) => t.id === clean);
+    if (found) return { ...found };
+    return null;
+  }
+  const found = COMMON_TIMEZONES.find((t) => t.id === clean);
   if (found) return { ...found };
-  const city = id.split('/').pop()?.replace(/_/g, ' ') || id;
-  return { id, city, country: '' };
+  const city = clean.split('/').pop()?.replace(/_/g, ' ') || clean;
+  return { id: clean, city, country: '' };
 }
 
 export function applyHashParams(state) {
@@ -20,16 +29,24 @@ export function applyHashParams(state) {
   if (path === '/timezones' || path === 'timezones') {
     const d = params.get('d');
     if (d) {
-      const entries = d.split(',').filter(Boolean);
+      const entries = d.split(',').filter(Boolean).slice(0, MAX_TIMEZONE_URL_ENTRIES);
       const primary = entries.find((e) => e.includes('-primary'))?.replace('-primary', '')
         || entries[0]?.replace('-primary', '');
-      state.timezones = entries.map((entry) =>
-        resolveTimezone(entry.replace('-primary', ''))
-      );
-      if (primary) state.primaryTimezone = primary;
-      const h = params.get('h');
-      if (h) state.settings.hourFormat = parseInt(h, 10) === 24 ? 24 : 12;
-      changed = true;
+      const zones = entries
+        .map((entry) => resolveTimezone(entry))
+        .filter(Boolean);
+      if (zones.length > 0) {
+        state.timezones = zones;
+        if (primary && zones.some((z) => z.id === primary)) {
+          state.primaryTimezone = primary;
+        } else {
+          state.primaryTimezone = zones[0].id;
+        }
+        state.tzScrubOffsetMs = 0;
+        const h = params.get('h');
+        if (h) state.settings.hourFormat = parseInt(h, 10) === 24 ? 24 : 12;
+        changed = true;
+      }
     }
   }
 
