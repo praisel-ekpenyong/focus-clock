@@ -13,6 +13,7 @@ terminals/
 mcps/
 
 # Reference screenshots from time.fyi study
+docs/reference/
 reference.png
 built.png
 ref_*.png

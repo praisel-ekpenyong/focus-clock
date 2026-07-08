@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createTimerClock } from '../js/timer-clock.js';
+import { createTimerClock } from '../public/js/timer-clock.js';
 
 describe('createTimerClock', () => {
   beforeEach(() => {

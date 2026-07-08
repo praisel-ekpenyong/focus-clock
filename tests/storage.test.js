@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeState } from '../js/storage.js';
+import { normalizeState } from '../public/js/storage.js';
 
 describe('normalizeState', () => {
   it('coerces invalid task list to empty array', () => {

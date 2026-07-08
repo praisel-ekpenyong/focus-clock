@@ -5,9 +5,10 @@
   "type": "module",
   "description": "All your time tools in one place — pomodoro, timezones, planner, timer, and stopwatch.",
   "scripts": {
-    "dev": "npx --yes serve . -l 8080",
+    "dev": "npx --yes serve public -l 8080",
     "start": "npm run dev",
-    "test": "vitest run"
+    "test": "vitest run",
+    "deploy": "netlify deploy --prod --dir public --no-build"
   },
   "devDependencies": {
     "playwright": "^1.61.1",

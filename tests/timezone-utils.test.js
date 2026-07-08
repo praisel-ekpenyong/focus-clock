@@ -3,7 +3,7 @@ import {
   isValidTimezone,
   formatTimeParts,
   getHourInZone,
-} from '../js/timezone-utils.js';
+} from '../public/js/timezone-utils.js';
 
 describe('timezone-utils', () => {
   it('accepts known IANA zones', () => {

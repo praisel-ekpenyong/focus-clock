@@ -4,7 +4,7 @@ import {
   getPendingTasks,
   toggleTaskComplete,
   deleteTask,
-} from '../js/tasks.js';
+} from '../public/js/tasks.js';
 
 describe('tasks', () => {
   const date = new Date(2026, 6, 8);

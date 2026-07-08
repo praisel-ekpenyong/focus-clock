@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseRoutePath } from '../js/url-state.js';
+import { parseRoutePath } from '../public/js/url-state.js';
 
 describe('parseRoutePath', () => {
   it('defaults to pomodoro when hash is empty', () => {
