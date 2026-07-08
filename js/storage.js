@@ -42,6 +42,24 @@ function asArray(value, fallback) {
   return Array.isArray(value) ? value : fallback;
 }
 
+function asTasks(value) {
+  return asArray(value, []).filter(
+    (t) => t && typeof t === 'object' && typeof t.id === 'string' && typeof t.title === 'string'
+  );
+}
+
+function asRoutines(value) {
+  return asArray(value, []).filter(
+    (r) => r && typeof r === 'object' && typeof r.id === 'string' && typeof r.title === 'string' && r.frequency
+  );
+}
+
+function asCityList(value, fallback) {
+  return asArray(value, fallback).filter(
+    (c) => c && typeof c === 'object' && typeof c.id === 'string' && c.id
+  );
+}
+
 function clampInt(value, min, max, fallback) {
   const n = parseInt(value, 10);
   if (Number.isNaN(n)) return fallback;
@@ -62,10 +80,14 @@ export function normalizeState(raw = {}) {
   state.settings.hourFormat = state.settings.hourFormat === 24 ? 24 : 12;
   state.settings.timerChimeInterval = clampInt(state.settings.timerChimeInterval, 0, 60, 0);
 
-  state.tasks = asArray(raw.tasks, []);
-  state.routines = asArray(raw.routines, []);
-  state.taskDump = asArray(raw.taskDump, []);
-  state.timerPresets = asArray(raw.timerPresets, []);
+  state.tasks = asTasks(raw.tasks);
+  state.routines = asRoutines(raw.routines);
+  state.taskDump = asArray(raw.taskDump, []).filter(
+    (t) => t && typeof t === 'object' && typeof t.id === 'string' && typeof t.title === 'string'
+  );
+  state.timerPresets = asArray(raw.timerPresets, []).filter(
+    (p) => p && typeof p === 'object' && typeof p.id === 'string' && typeof p.label === 'string'
+  );
   state.sessions = raw.sessions && typeof raw.sessions === 'object' && !Array.isArray(raw.sessions)
     ? raw.sessions
     : {};
@@ -76,8 +98,16 @@ export function normalizeState(raw = {}) {
   state.timezoneView = raw.timezoneView === 'list' ? 'list' : 'grid';
   state.tzScrubOffsetMs = typeof raw.tzScrubOffsetMs === 'number' ? raw.tzScrubOffsetMs : 0;
 
-  state.worldClockCities = mergeDefaultCities(asArray(raw.worldClockCities, defaults.worldClockCities));
-  state.timezones = mergeDefaultCities(asArray(raw.timezones, defaults.timezones));
+  state.worldClockCities = mergeDefaultCities(
+    asCityList(raw.worldClockCities, defaults.worldClockCities).length
+      ? asCityList(raw.worldClockCities, defaults.worldClockCities)
+      : defaults.worldClockCities
+  );
+  state.timezones = mergeDefaultCities(
+    asCityList(raw.timezones, defaults.timezones).length
+      ? asCityList(raw.timezones, defaults.timezones)
+      : defaults.timezones
+  );
 
   state.selectedWorldCity = ensureSelectedId(
     state.worldClockCities,

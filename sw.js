@@ -1,4 +1,4 @@
-const CACHE = 'focus-clock-v2';
+const CACHE = 'focus-clock-v3';
 const ASSETS = [
   '/',
   '/sw.js',

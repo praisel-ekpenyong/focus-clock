@@ -19,16 +19,10 @@ export class PomodoroTimer {
     this.remainingSeconds = 0;
     this.isCompleted = false;
     this.activeTaskId = null;
-    this._syncFlags();
   }
 
   get isRunning() { return this.clock.isRunning; }
   get isPaused() { return this.clock.isPaused; }
-
-  _syncFlags() {
-    this.isRunning = this.clock.isRunning;
-    this.isPaused = this.clock.isPaused;
-  }
 
   getDurationForMode(mode) {
     const map = {
@@ -82,21 +76,18 @@ export class PomodoroTimer {
     }
     this.isCompleted = false;
     this.clock.resumeClock();
-    this._syncFlags();
     this.clock.startTick(() => this.tick());
     this.callbacks.onUpdate();
   }
 
   pause() {
     this.clock.pauseClock();
-    this._syncFlags();
     this.callbacks.onUpdate();
   }
 
   reset(updateTitle = true) {
     this.isCompleted = false;
     this.clock.resetClock();
-    this._syncFlags();
     this.totalSeconds = this.getDurationForMode(this.mode);
     this.remainingSeconds = this.totalSeconds;
     if (updateTitle) this.callbacks.onUpdate();
@@ -107,7 +98,6 @@ export class PomodoroTimer {
     this.remainingSeconds = 0;
     this.clock.pauseClock();
     this.clock.stopTick();
-    this._syncFlags();
     this.callbacks.onComplete();
     this.callbacks.onUpdate();
   }

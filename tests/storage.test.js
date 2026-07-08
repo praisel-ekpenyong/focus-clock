@@ -17,6 +17,15 @@ describe('normalizeState', () => {
     expect(normalizeState({ settings: { hourFormat: 99 } }).settings.hourFormat).toBe(12);
   });
 
+  it('filters invalid routine and task entries', () => {
+    const state = normalizeState({
+      routines: [null, { id: 'r1', title: 'OK', frequency: 'daily' }, { bad: true }],
+      tasks: [null, { id: 't1', title: 'Task', date: '2026-07-08', position: 0, completed: false }],
+    });
+    expect(state.routines).toHaveLength(1);
+    expect(state.tasks).toHaveLength(1);
+  });
+
   it('defaults tzScrubOffsetMs when missing', () => {
     expect(normalizeState({}).tzScrubOffsetMs).toBe(0);
   });

@@ -15,6 +15,7 @@ export function applyRoutines(state) {
   let changed = false;
 
   for (const routine of state.routines) {
+    if (!routine || typeof routine !== 'object' || !routine.title || !routine.frequency) continue;
     if (!shouldRunToday(routine, day)) continue;
     const exists = state.tasks.some(
       (t) => t.routineId === routine.id && t.date === key

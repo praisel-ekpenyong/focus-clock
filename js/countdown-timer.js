@@ -9,16 +9,10 @@ export class CountdownTimer {
     this.remainingSeconds = 0;
     this.isCompleted = false;
     this.label = '';
-    this._syncFlags();
   }
 
   get isRunning() { return this.clock.isRunning; }
   get isPaused() { return this.clock.isPaused; }
-
-  _syncFlags() {
-    this.isRunning = this.clock.isRunning;
-    this.isPaused = this.clock.isPaused;
-  }
 
   setDuration(hours, minutes, seconds, label = '') {
     this.reset(false);
@@ -44,21 +38,18 @@ export class CountdownTimer {
     if (this.isCompleted || this.remainingSeconds <= 0) return;
     this.isCompleted = false;
     this.clock.resumeClock();
-    this._syncFlags();
     this.clock.startTick(() => this.tick());
     this.callbacks.onUpdate();
   }
 
   pause() {
     this.clock.pauseClock();
-    this._syncFlags();
     this.callbacks.onUpdate();
   }
 
   reset(update = true) {
     this.isCompleted = false;
     this.clock.resetClock();
-    this._syncFlags();
     if (update) {
       this.remainingSeconds = this.totalSeconds;
       this.callbacks.onUpdate();
@@ -70,7 +61,6 @@ export class CountdownTimer {
     this.remainingSeconds = 0;
     this.clock.pauseClock();
     this.clock.stopTick();
-    this._syncFlags();
     this.callbacks.onComplete();
     this.callbacks.onUpdate();
   }

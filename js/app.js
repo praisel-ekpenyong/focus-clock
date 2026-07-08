@@ -14,8 +14,12 @@ import { renderStopwatchPage, destroyStopwatchPage, stopwatchBreadcrumb } from '
 const state = loadState();
 applyHashParams(state);
 
-if (applyRoutines(state)) {
-  saveState(state);
+try {
+  if (applyRoutines(state)) {
+    saveState(state);
+  }
+} catch {
+  /* keep app bootable even if routine data is unexpectedly corrupt */
 }
 
 function bindWorkspaceButtons() {

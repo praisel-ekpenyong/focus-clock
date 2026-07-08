@@ -22,6 +22,15 @@ describe('applyRoutines', () => {
     expect(applyRoutines(state)).toBe(false);
   });
 
+  it('ignores null entries in routines array', () => {
+    const state = {
+      routines: [null, { id: 'r3', title: 'Valid', frequency: 'daily' }],
+      tasks: [],
+    };
+    expect(applyRoutines(state)).toBe(true);
+    expect(state.tasks).toHaveLength(1);
+  });
+
   it('skips weekly routines on the wrong weekday', () => {
     const state = {
       routines: [{ id: 'r2', title: 'Monday only', frequency: 'weekly', weekday: 1 }],
