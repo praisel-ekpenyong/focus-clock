@@ -1,8 +1,7 @@
 import { loadState, saveState } from './storage.js';
 import { registerRoute, initRouter } from './router.js';
-import { initShared, showToast } from './shared.js';
+import { initShared } from './shared.js';
 import { applyHashParams, parseRoutePath } from './url-state.js';
-import { applyRoutines } from './routines.js';
 import { ROUTES } from './constants.js';
 import { renderPomodoro, destroyPomodoro, pomodoroBreadcrumb } from './pages/pomodoro.js';
 import { renderTimezones, destroyTimezones, timezonesBreadcrumb } from './pages/timezones.js';
@@ -13,10 +12,6 @@ import { renderStopwatchPage, destroyStopwatchPage, stopwatchBreadcrumb } from '
 
 const state = loadState();
 applyHashParams(state);
-
-if (applyRoutines(state)) {
-  saveState(state);
-}
 
 function bindWorkspaceButtons() {
   const ws = document.getElementById('workspaceBtn');
@@ -83,18 +78,5 @@ initShared(state);
 initRouter('/pomodoro', parseRoutePath);
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then((registration) => {
-    registration.addEventListener('updatefound', () => {
-      const worker = registration.installing;
-      if (!worker) return;
-      worker.addEventListener('statechange', () => {
-        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-          showToast('Update available. Refresh to load the latest version.');
-        }
-      });
-    });
-  }).catch(() => {
-    showToast('Offline mode unavailable');
-  });
-
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }

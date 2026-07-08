@@ -2,7 +2,6 @@ import { STORAGE_KEY, LEGACY_STORAGE_KEY } from './constants.js';
 import { DEFAULT_CITIES, mergeDefaultCities, ensureSelectedId } from './cities.js';
 import { formatDateKey, parseDateKey, formatDateLabel, formatDayHeader, isToday, generateId } from './format-date.js';
 import { escapeHtml } from './dom.js';
-import { emitStorageSaveFailed } from './event-bus.js';
 
 export { DEFAULT_CITIES as DEFAULT_WORLD_CLOCK_CITIES };
 export { formatDateKey, parseDateKey, formatDateLabel, formatDayHeader, isToday, generateId, escapeHtml };
@@ -38,61 +37,6 @@ function mergeSettings(saved = {}) {
   return { ...defaults.settings, ...saved };
 }
 
-function asArray(value, fallback) {
-  return Array.isArray(value) ? value : fallback;
-}
-
-function clampInt(value, min, max, fallback) {
-  const n = parseInt(value, 10);
-  if (Number.isNaN(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
-}
-
-function asString(value, fallback) {
-  return typeof value === 'string' && value.trim() ? value : fallback;
-}
-
-function normalizeState(raw = {}) {
-  const state = { ...structuredClone(defaults), ...raw };
-  state.settings = mergeSettings(raw.settings);
-
-  state.settings.focusMinutes = clampInt(state.settings.focusMinutes, 1, 180, 25);
-  state.settings.shortBreakMinutes = clampInt(state.settings.shortBreakMinutes, 1, 60, 5);
-  state.settings.longBreakMinutes = clampInt(state.settings.longBreakMinutes, 1, 60, 15);
-  state.settings.hourFormat = state.settings.hourFormat === 24 ? 24 : 12;
-  state.settings.timerChimeInterval = clampInt(state.settings.timerChimeInterval, 0, 60, 0);
-
-  state.tasks = asArray(raw.tasks, []);
-  state.routines = asArray(raw.routines, []);
-  state.taskDump = asArray(raw.taskDump, []);
-  state.timerPresets = asArray(raw.timerPresets, []);
-  state.sessions = raw.sessions && typeof raw.sessions === 'object' && !Array.isArray(raw.sessions)
-    ? raw.sessions
-    : {};
-
-  state.workspace = asString(raw.workspace, defaults.workspace);
-  state.project = asString(raw.project, defaults.project);
-  state.plannerTab = ['planner', 'routine', 'dump'].includes(raw.plannerTab) ? raw.plannerTab : 'planner';
-  state.timezoneView = raw.timezoneView === 'list' ? 'list' : 'grid';
-  state.tzScrubOffsetMs = typeof raw.tzScrubOffsetMs === 'number' ? raw.tzScrubOffsetMs : 0;
-
-  state.worldClockCities = mergeDefaultCities(asArray(raw.worldClockCities, defaults.worldClockCities));
-  state.timezones = mergeDefaultCities(asArray(raw.timezones, defaults.timezones));
-
-  state.selectedWorldCity = ensureSelectedId(
-    state.worldClockCities,
-    raw.selectedWorldCity,
-    'America/Edmonton'
-  );
-  state.primaryTimezone = ensureSelectedId(
-    state.timezones,
-    raw.primaryTimezone,
-    'America/Edmonton'
-  );
-
-  return state;
-}
-
 function readRawStorage() {
   const current = localStorage.getItem(STORAGE_KEY);
   if (current) return { raw: current, migrated: false };
@@ -110,21 +54,32 @@ export function loadState() {
     const { raw, migrated } = readRawStorage();
     if (!raw) return structuredClone(defaults);
     const parsed = JSON.parse(raw);
+    const state = { ...structuredClone(defaults), ...parsed };
+    state.settings = mergeSettings(parsed.settings);
 
-    const prevWorld = JSON.stringify(parsed.worldClockCities);
-    const prevTz = JSON.stringify(parsed.timezones);
+    const prevWorld = JSON.stringify(state.worldClockCities);
+    const prevTz = JSON.stringify(state.timezones);
 
-    const state = normalizeState(parsed);
-    const citiesChanged =
+    state.worldClockCities = mergeDefaultCities(state.worldClockCities);
+    state.timezones = mergeDefaultCities(state.timezones);
+
+    state.selectedWorldCity = ensureSelectedId(
+      state.worldClockCities,
+      state.selectedWorldCity,
+      'America/Edmonton'
+    );
+    state.primaryTimezone = ensureSelectedId(
+      state.timezones,
+      state.primaryTimezone,
+      'America/Edmonton'
+    );
+
+    if (
+      migrated ||
       JSON.stringify(state.worldClockCities) !== prevWorld ||
-      JSON.stringify(state.timezones) !== prevTz;
-
-    if (migrated || citiesChanged) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch {
-        /* quota on migration write — state still usable in memory */
-      }
+      JSON.stringify(state.timezones) !== prevTz
+    ) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
 
     return state;
@@ -134,11 +89,5 @@ export function loadState() {
 }
 
 export function saveState(state) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
-  } catch {
-    emitStorageSaveFailed();
-    return false;
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }

@@ -1,7 +1,6 @@
-const CACHE = 'focus-clock-v2';
+const CACHE = 'focus-clock-v1';
 const ASSETS = [
   '/',
-  '/sw.js',
   '/index.html',
   '/css/styles.css',
   '/manifest.json',

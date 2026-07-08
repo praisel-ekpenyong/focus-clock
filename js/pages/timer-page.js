@@ -167,7 +167,7 @@ export function renderTimerPage(outlet, state) {
       </button>
     `).join('');
 
-    empty.classList.toggle('hidden', state.timerPresets.length > 0);
+    empty.classList.toggle('hidden', true);
 
     grid.querySelectorAll('.preset-btn').forEach((btn) => {
       btn.onclick = (e) => {
@@ -293,7 +293,6 @@ export function renderTimerPage(outlet, state) {
 export function destroyTimerPage() {
   if (timer) { timer.destroy(); timer = null; }
   if (scope) { scope.destroy(); scope = null; }
-  lastChimeKey = null;
   document.title = APP_NAME;
 }
 
