@@ -16,3 +16,6 @@ mcps/
 reference.png
 built.png
 ref_*.png
+# Local Netlify folder
+.netlify
+dist/

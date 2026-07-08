@@ -1,0 +1,10 @@
+node_modules
+.git
+tests
+terminals
+mcps
+ref_*.png
+reference.png
+built.png
+package-lock.json
+vitest.config.js
