@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / tooling
+.vscode/
+.idea/
+
+# Cursor / agent runtime (not part of the app)
+terminals/
+mcps/
+
+# Reference screenshots from time.fyi study
+reference.png
+built.png
+ref_*.png

@@ -1,0 +1,17 @@
+{
+  "name": "time.fyi",
+  "short_name": "time.fyi",
+  "description": "All your time tools in one place — pomodoro, timezones, planner, timer, and stopwatch.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101010",
+  "theme_color": "#101010",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
